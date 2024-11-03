@@ -23,7 +23,10 @@ def remoteHandler(conn, conn_to_local):
     while True:
         received = conn.recv(BUFFER_SIZE)
         print(f"Remote: {received}")
-        if not received: break
+        if not received:
+            conn.close()
+            print("Closing remote thread")
+            return
         # If using HTTP, it may be needed to do some string replacements, to make CORS working
         #received = received.replace(b"https://example.com", b"http://localhost:88")
         conn_to_local.send(received)
@@ -47,6 +50,8 @@ def handler(conn):
                 # received = received.replace(b"Host: localhost:88", b"Host: example.com")
                 # received = received.replace(b"http://localhost:88", b"http://example.com")
                 wrapped_socket.send(received)
+            wrapped_socket.close()
+            print("Closing client thread")
 
 
 with socket.socket() as s:

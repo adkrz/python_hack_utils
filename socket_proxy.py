@@ -10,6 +10,7 @@ May be used to:
 import socket
 import threading
 import ssl
+import select
 
 LISTEN_ADDRESS = ''  # typically listen on any interface on the server. "127.0.0.1" will only accept connections on the same computer.
 LISTEN_PORT = 88
@@ -17,19 +18,6 @@ TARGET_ADDRESS = "example.com"
 TARGET_PORT = 443
 TARGET_SSL = True
 BUFFER_SIZE = 1024
-
-
-def remoteHandler(conn, conn_to_local):
-    while True:
-        received = conn.recv(BUFFER_SIZE)
-        print(f"Remote: {received}")
-        if not received:
-            conn.close()
-            print("Closing remote thread")
-            return
-        # If using HTTP, it may be needed to do some string replacements, to make CORS working
-        #received = received.replace(b"https://example.com", b"http://localhost:88")
-        conn_to_local.send(received)
 
 
 def handler(conn):
@@ -41,16 +29,25 @@ def handler(conn):
             else:
                 wrapped_socket = s2
             wrapped_socket.connect((TARGET_ADDRESS, TARGET_PORT))
-            threading.Thread(target=remoteHandler, args=(wrapped_socket, conn)).start()
-            while True:
-                received = conn.recv(BUFFER_SIZE)
-                if not received: break
-                print(f"Local: {received}")
-                # If using HTTP, it may be needed to do some string replacements, to make HOST and CORS working
-                # received = received.replace(b"Host: localhost:88", b"Host: example.com")
-                # received = received.replace(b"http://localhost:88", b"http://example.com")
-                wrapped_socket.send(received)
-            wrapped_socket.close()
+
+            conns = [conn, wrapped_socket]
+            connected = True
+            try:
+                while connected:
+                    rlist, wlist, xlist = select.select(conns, [], conns, 2000)
+                    if xlist or not rlist:
+                        break
+                    for r in rlist:
+                        other = conns[1] if r is conns[0] else conns[0]
+                        data = r.recv(BUFFER_SIZE)
+                        if not data:
+                            connected = False
+                            break
+                        print(data)
+                        other.sendall(data)
+            except (ConnectionAbortedError, ConnectionResetError):
+                conn.close()
+
             print("Closing client thread")
 
 

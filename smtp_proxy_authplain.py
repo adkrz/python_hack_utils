@@ -56,7 +56,7 @@ def handler(conn):
                                     mode = "u"
                                     replaced = True
                         else: # client
-                            if data == b"AUTH LOGIN":
+                            if data == b"AUTH LOGIN\r\n":
                                 data = b"AUTH PLAIN\r\n"
                                 replaced = True
                             elif data.startswith(b"AUTH LOGIN "):

@@ -49,11 +49,20 @@ def handler(conn):
                                 data = data.replace(b"PLAIN", b"PLAIN LOGIN")
                                 replaced = True
                             elif data.startswith(b"334 "):
-                                data = b"334 VXNlcm5hbWU6\r\n"
-                                mode = "u"
-                                replaced = True
+                                if mode == "u2":
+                                    conns[0].sendall(encoded_username)
+                                else:
+                                    data = b"334 VXNlcm5hbWU6\r\n"
+                                    mode = "u"
+                                    replaced = True
                         else: # client
-                            if data.startswith(b"AUTH LOGIN"):
+                            if data == b"AUTH LOGIN":
+                                data = b"AUTH PLAIN\r\n"
+                                replaced = True
+                            elif data.startswith(b"AUTH LOGIN "):
+                                encoded_username = data[11:]
+                                username = base64.b64decode(encoded_username)
+                                mode = "u2"
                                 data = b"AUTH PLAIN\r\n"
                                 replaced = True
                             elif mode == "u":
@@ -61,7 +70,7 @@ def handler(conn):
                                 conns[0].sendall(b'334 UGFzc3dvcmQ6\r\n')
                                 mode = "p"
                                 continue
-                            elif mode == "p":
+                            elif mode == "p" or mode == "u2":
                                 password = base64.b64decode(data)
                                 loginstr = b"\0" + username + b"\0" + password
                                 print(b"Encoding: " + loginstr)
